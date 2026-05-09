@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Business Finance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #efede8;
+    --text-primary: #1a1a18;
+    --text-secondary: #6b6a65;
+    --text-tertiary: #9e9d98;
+    --border-light: rgba(0,0,0,0.12);
+    --border-mid: rgba(0,0,0,0.22);
+    --border-strong: rgba(0,0,0,0.35);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --color-income: #1D9E75;
+    --color-expense: #D85A30;
+    --color-bank: #185FA5;
+    --color-cash: #854F0B;
+    --color-pending: #854F0B;
+    --color-overdue: #A32D2D;
+    --color-partial: #185FA5;
+    --color-paid: #3B6D11;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1c1c1a;
+      --bg-secondary: #252523;
+      --bg-tertiary: #2e2e2b;
+      --text-primary: #f0ede8;
+      --text-secondary: #a09e99;
+      --text-tertiary: #6b6a65;
+      --border-light: rgba(255,255,255,0.1);
+      --border-mid: rgba(255,255,255,0.18);
+      --border-strong: rgba(255,255,255,0.28);
+    }
+  }
+
+  body { font-family: var(--font); background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+
+  .app-header { background: var(--bg-primary); border-bottom: 0.5px solid var(--border-light); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .app-header h1 { font-size: 16px; font-weight: 500; }
+  .app-header .sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+  .tab-bar { display: flex; gap: 2px; background: var(--bg-secondary); border-radius: var(--radius-md); padding: 3px; }
+  .tab-btn { font-size: 13px; padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; background: transparent; color: var(--text-secondary); font-family: var(--font); transition: all .15s; }
+  .tab-btn.active { background: var(--bg-primary); color: var(--text-primary); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .page { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .kpi { background: var(--bg-primary); border: 0.5px solid var(--border-light); border-radius: var(--radius-md); padding: 14px 16px; }
+  .kpi .lbl { font-size: 11px; color: var(--text-secondary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .val { font-size: 20px; font-weight: 500; }
+  .kpi .dl { font-size: 11px; margin-top: 3px; color: var(--text-tertiary); }
+  .up { color: #1D9E75; } .dn { color: #D85A30; }
+
+  /* Controls */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .controls input[type=text], .controls select, select.ctrl { font-size: 13px; padding: 6px 10px; border-radius: var(--radius-md); border: 0.5px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary); height: 34px; font-family: var(--font); }
+  .controls input[type=text] { flex: 1; min-width: 160px; }
+  .btn { font-size: 13px; padding: 6px 14px; border-radius: var(--radius-md); border: 0.5px solid var(--border-mid); background: transparent; color: var(--text-primary); cursor: pointer; height: 34px; font-family: var(--font); white-space: nowrap; }
+  .btn:hover { background: var(--bg-secondary); }
+  .btn.primary { background: var(--text-primary); color: var(--bg-primary); border-color: var(--text-primary); }
+  .btn.primary:hover { opacity: 0.85; }
+
+  /* Table */
+  .table-card { border: 0.5px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-primary); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; padding: 10px 12px; background: var(--bg-secondary); border-bottom: 0.5px solid var(--border-light); text-align: left; white-space: nowrap; }
+  th.r, td.r { text-align: right; }
+  tbody tr { border-bottom: 0.5px solid var(--border-light); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg-secondary); }
+  td { padding: 10px 12px; vertical-align: middle; }
+  .empty-row td { text-align: center; padding: 2.5rem; color: var(--text-tertiary); }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .b-income { background: #E1F5EE; color: #0F6E56; }
+  .b-expense { background: #FAECE7; color: #993C1D; }
+  .b-cash { background: #FAEEDA; color: #854F0B; }
+  .b-bank { background: #E6F1FB; color: #185FA5; }
+  .b-paid { background: #EAF3DE; color: #3B6D11; }
+  .b-pending { background: #FAEEDA; color: #854F0B; }
+  .b-overdue { background: #FCEBEB; color: #A32D2D; }
+  .b-partial { background: #E6F1FB; color: #185FA5; }
+  .amt-pos { color: #1D9E75; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .amt-neg { color: #D85A30; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* Modal */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border-light); padding: 1.5rem; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 15px; font-weight: 500; margin-bottom: 1.2rem; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-row.full { grid-template-columns: 1fr; }
+  .form-group label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; font-size: 13px; padding: 7px 10px; border-radius: var(--radius-md); border: 0.5px solid var(--border-light); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font); }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.25rem; }
+
+  /* Income statement */
+  .stmt-wrap { border: 0.5px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-primary); margin-bottom: 20px; }
+  .stmt-wrap table { table-layout: fixed; }
+  .stmt-wrap thead th { background: var(--bg-secondary); }
+  tr.sec-head td { background: var(--bg-secondary); font-size: 11px; font-weight: 500; color: var(--text-secondary); letter-spacing: .05em; text-transform: uppercase; padding: 6px 12px; border-bottom: 0.5px solid var(--border-light); }
+  tr.line-item:hover { background: var(--bg-secondary); }
+  tr.line-item td.desc { padding-left: 26px; }
+  .editable { border: none; background: transparent; font-size: 12px; color: var(--text-secondary); width: 100%; outline: none; font-family: var(--font); }
+  .editable:focus { background: var(--bg-secondary); border-radius: 4px; padding: 1px 4px; }
+  .amt-input { border: none; background: transparent; font-size: 13px; color: var(--text-primary); width: 90px; text-align: right; outline: none; font-family: var(--font); font-variant-numeric: tabular-nums; }
+  .amt-input:focus { background: var(--bg-secondary); border-radius: 4px; }
+  .del-btn { background: none; border: none; cursor: pointer; color: var(--text-tertiary); padding: 2px 4px; font-size: 14px; line-height: 1; }
+  .del-btn:hover { color: #D85A30; }
+  tr.subtotal td { background: var(--bg-secondary); font-weight: 500; border-top: 0.5px solid var(--border-mid); }
+  tr.subtotal td.pos { color: #1D9E75; }
+  tr.subtotal td.neg { color: #D85A30; }
+  tr.grand-total td { border-top: 2px solid var(--border-strong); font-weight: 500; font-size: 14px; background: var(--bg-secondary); }
+  tr.grand-total td.pos { color: #1D9E75; font-size: 15px; }
+  tr.grand-total td.neg { color: #D85A30; font-size: 15px; }
+  .add-row-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--text-tertiary); padding: 7px 12px 7px 26px; text-align: left; width: 100%; display: block; font-family: var(--font); }
+  .add-row-btn:hover { color: var(--text-secondary); }
+  .mini-select { font-size: 10px; padding: 1px 3px; border: 0.5px solid var(--border-light); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary); font-family: var(--font); }
+  .chart-section { background: var(--bg-primary); border: 0.5px solid var(--border-light); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12px; color: var(--text-secondary); }
+  .chart-legend span { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  /* stmt col widths */
+  .col-date { width: 76px; }
+  .col-desc { width: auto; }
+  .col-mode { width: 64px; }
+  .col-status { width: 72px; }
+  .col-amt-s { width: 106px; }
+  .col-pct { width: 62px; }
+  .col-del { width: 30px; }
+
+  /* ledger col widths */
+  .l-date { width: 88px; }
+  .l-desc { width: auto; }
+  .l-cat { width: 110px; }
+  .l-type { width: 96px; }
+  .l-mode { width: 80px; }
+  .l-amt { width: 108px; }
+  .l-status { width: 90px; }
+  .l-act { width: 62px; text-align: center; }
+
+  .action-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text-secondary); padding: 2px 5px; border-radius: 4px; }
+  .action-btn:hover { background: var(--bg-secondary); }
+  .note-text { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+  .section-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .section-toolbar h2 { font-size: 15px; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <div style="font-size:16px;font-weight:500">Business finance dashboard</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-top:1px" id="header-date">Loading…</div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('ledger')">Ledger</button>
+    <button class="tab-btn" onclick="switchTab('statement')">Income statement</button>
+  </div>
+</div>
+
+<!-- ══════════════════ LEDGER TAB ══════════════════ -->
+<div class="tab-panel active" id="tab-ledger">
+<div class="page">
+  <div class="kpi-row" id="l-kpi"></div>
+  <div class="section-toolbar">
+    <h2>All entries</h2>
+    <button class="btn primary" onclick="openModal()">+ Add entry</button>
+  </div>
+  <div class="controls">
+    <input type="text" id="l-search" placeholder="Search entries…" oninput="renderLedger()">
+    <select id="l-type" onchange="renderLedger()"><option value="">All types</option><option value="income">Income</option><option value="expense">Expense</option></select>
+    <select id="l-mode" onchange="renderLedger()"><option value="">All modes</option><option value="cash">Cash</option><option value="bank">Bank</option></select>
+    <select id="l-status" onchange="renderLedger()"><option value="">All statuses</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option><option value="partial">Partial</option></select>
+    <select id="l-sort" onchange="renderLedger()"><option value="date-desc">Newest first</option><option value="date-asc">Oldest first</option><option value="amount-desc">Highest amount</option><option value="amount-asc">Lowest amount</option></select>
+  </div>
+  <div class="table-card"><div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="l-date">Date</th>
+        <th class="l-desc">Description</th>
+        <th class="l-cat">Category</th>
+        <th class="l-type">Type</th>
+        <th class="l-mode">Mode</th>
+        <th class="l-amt r">Amount</th>
+        <th class="l-status">Status</th>
+        <th class="l-act"></th>
+      </tr></thead>
+      <tbody id="ledger-body"></tbody>
+    </table>
+  </div></div>
+</div>
+</div>
+
+<!-- ══════════════════ INCOME STATEMENT TAB ══════════════════ -->
+<div class="tab-panel" id="tab-statement">
+<div class="page">
+  <div class="section-toolbar">
+    <div>
+      <div style="font-size:15px;font-weight:500">Income statement</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:2px" id="stmt-sub">April 2026</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select class="ctrl" id="sel-month" onchange="updateStmt()">
+        <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+        <option value="3" selected>April</option><option value="4">May</option><option value="5">June</option>
+        <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+        <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+      </select>
+      <select class="ctrl" id="sel-year" onchange="updateStmt()">
+        <option value="2025">2025</option><option value="2026" selected>2026</option>
+      </select>
+      <button class="btn primary" onclick="openStmtModal()">+ Add entry</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="s-kpi"></div>
+  <div class="stmt-wrap"><div id="stmt-body"></div></div>
+
+  <div class="chart-section">
+    <div class="chart-legend">
+      <span><span class="dot" style="background:#9FE1CB;border:1px solid #1D9E75"></span>Revenue</span>
+      <span><span class="dot" style="background:#F5C4B3;border:1px solid #D85A30"></span>Expenses</span>
+      <span><span style="width:18px;height:0;border-top:2px dashed #185FA5;display:inline-block;vertical-align:middle"></span>&nbsp;Net profit</span>
+    </div>
+    <div style="position:relative;width:100%;height:210px">
+      <canvas id="trend-chart" role="img" aria-label="12-month bar chart of monthly revenue, expenses and net profit">Monthly revenue, expenses and net profit trend for the year.</canvas>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--text-tertiary);text-align:right">All figures in ₹ · Click any description or amount to edit inline</div>
+</div>
+</div>
+
+<!-- ══════════════════ STMT ADD / EDIT MODAL ══════════════════ -->
+<div class="modal-bg" id="stmt-modal-bg">
+  <div class="modal">
+    <h2 id="stmt-modal-title">Add statement entry</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Date (optional)</label><input type="text" id="sf-date" placeholder="e.g. 05/04"></div>
+      <div class="form-group"><label>Section</label>
+        <select id="sf-section">
+          <option value="rev">Revenue</option>
+          <option value="cogs">Cost of goods sold</option>
+          <option value="opex">Operating expenses</option>
+          <option value="tax">Tax & adjustments</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group"><label>Description</label><input type="text" id="sf-desc" placeholder="e.g. Product sales, Office rent…"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="sf-amount" min="0" step="1" placeholder="0"></div>
+      <div class="form-group"><label>Payment mode</label>
+        <select id="sf-mode"><option value="bank">Bank</option><option value="cash">Cash</option></select>
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group"><label>Payment status</label>
+        <select id="sf-status">
+          <option value="paid">Paid</option>
+          <option value="pending">Pending</option>
+          <option value="overdue">Overdue</option>
+          <option value="partial">Partial</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeStmtModal()">Cancel</button>
+      <button class="btn primary" onclick="saveStmtEntry()">Save entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ ADD / EDIT MODAL ══════════════════ -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2 id="modal-title">Add new entry</h2>
+    <div class="form-row">
+      <div class="form-group"><label>Date</label><input type="date" id="f-date"></div>
+      <div class="form-group"><label>Type</label>
+        <select id="f-type"><option value="income">Income</option><option value="expense">Expense</option></select>
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group"><label>Description</label><input type="text" id="f-desc" placeholder="e.g. Client payment, Office rent…"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Category</label>
+        <select id="f-cat">
+          <option>Sales</option><option>Services</option><option>Investment</option><option>Loan received</option>
+          <option>Rent</option><option>Utilities</option><option>Salaries</option><option>Supplies</option>
+          <option>Marketing</option><option>Transport</option><option>Taxes</option><option>Loan repayment</option><option>Miscellaneous</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Amount (₹)</label><input type="number" id="f-amount" min="0" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Payment mode</label>
+        <select id="f-mode"><option value="cash">Cash</option><option value="bank">Bank</option></select>
+      </div>
+      <div class="form-group"><label>Payment status</label>
+        <select id="f-status"><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option><option value="partial">Partial</option></select>
+      </div>
+    </div>
+    <div class="form-row full">
+      <div class="form-group"><label>Notes (optional)</label><textarea id="f-notes" placeholder="Reference number, party name, remarks…"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveEntry()">Save entry</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── SHARED UTILS ───────────────────────────────────────────────
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmt(n){const r=Math.round(n);return(r<0?'-₹':'₹')+Math.abs(r).toLocaleString('en-IN')}
+function fmtDateShort(d){const p=d.split('-');return p[2]+' '+SHORT[parseInt(p[1])-1]}
+function pctStr(a,b){return b===0?'—':(Math.round(Math.abs(a)/b*1000)/10).toFixed(1)+'%'}
+function deltaHtml(curr,prev){if(prev===null||prev===undefined)return'<span style="color:var(--text-tertiary)">—</span>';const d=prev===0?0:((curr-prev)/Math.abs(prev)*100);const sym=d>=0?'▲':'▼';const cls=d>=0?'up':'dn';return`<span class="${cls}">${sym} ${Math.abs(d).toFixed(1)}%</span>`}
+function mkId(){return Math.random().toString(36).slice(2,8)}
+
+// ─── HEADER DATE ────────────────────────────────────────────────
+document.getElementById('header-date').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ─── TAB SWITCHING ──────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+// LEDGER
+// ══════════════════════════════════════════════════════════════
+let entries=[
+  {id:1,date:'2026-04-01',desc:'Client payment – Sharma & Co',cat:'Services',type:'income',mode:'bank',amount:85000,status:'paid',notes:'Invoice #INV-041'},
+  {id:2,date:'2026-04-03',desc:'Office rent – April',cat:'Rent',type:'expense',mode:'bank',amount:22000,status:'paid',notes:''},
+  {id:3,date:'2026-04-05',desc:'Raw material purchase',cat:'Supplies',type:'expense',mode:'cash',amount:14500,status:'paid',notes:'Supplier: Raju Traders'},
+  {id:4,date:'2026-04-08',desc:'Product sale – walk-in',cat:'Sales',type:'income',mode:'cash',amount:9200,status:'paid',notes:''},
+  {id:5,date:'2026-04-10',desc:'Electricity & water',cat:'Utilities',type:'expense',mode:'bank',amount:3800,status:'paid',notes:''},
+  {id:6,date:'2026-04-12',desc:'Freelance project – Mehta Ltd',cat:'Services',type:'income',mode:'bank',amount:45000,status:'pending',notes:'Due 30 Apr'},
+  {id:7,date:'2026-04-15',desc:'Staff salaries – April',cat:'Salaries',type:'expense',mode:'bank',amount:60000,status:'paid',notes:'3 employees'},
+  {id:8,date:'2026-04-18',desc:'Social media ads',cat:'Marketing',type:'expense',mode:'bank',amount:7500,status:'paid',notes:'Facebook + Instagram'},
+  {id:9,date:'2026-04-20',desc:'Bulk order – Verma Retail',cat:'Sales',type:'income',mode:'cash',amount:32000,status:'partial',notes:'₹18k received, ₹14k pending'},
+  {id:10,date:'2026-04-25',desc:'Vehicle fuel & transport',cat:'Transport',type:'expense',mode:'cash',amount:4200,status:'paid',notes:''},
+  {id:11,date:'2026-05-01',desc:'GST payment – Q1',cat:'Taxes',type:'expense',mode:'bank',amount:18600,status:'overdue',notes:'Due 15 Apr'},
+  {id:12,date:'2026-05-02',desc:'New client deposit – Kapoor Group',cat:'Services',type:'income',mode:'bank',amount:25000,status:'paid',notes:'Advance for May project'},
+];
+let nextId=13;
+let editId=null;
+
+function renderLedger(){
+  const search=document.getElementById('l-search').value.toLowerCase();
+  const ftype=document.getElementById('l-type').value;
+  const fmode=document.getElementById('l-mode').value;
+  const fstatus=document.getElementById('l-status').value;
+  const sort=document.getElementById('l-sort').value;
+  let filtered=entries.filter(e=>{
+    if(ftype&&e.type!==ftype)return false;
+    if(fmode&&e.mode!==fmode)return false;
+    if(fstatus&&e.status!==fstatus)return false;
+    if(search&&!(e.desc.toLowerCase().includes(search)||e.cat.toLowerCase().includes(search)||(e.notes||'').toLowerCase().includes(search)))return false;
+    return true;
+  });
+  filtered.sort((a,b)=>{
+    if(sort==='date-desc')return b.date.localeCompare(a.date);
+    if(sort==='date-asc')return a.date.localeCompare(b.date);
+    if(sort==='amount-desc')return b.amount-a.amount;
+    if(sort==='amount-asc')return a.amount-b.amount;
+    return 0;
+  });
+  const tbody=document.getElementById('ledger-body');
+  if(filtered.length===0){tbody.innerHTML='<tr class="empty-row"><td colspan="8">No entries found</td></tr>';updateLedgerKpi();return;}
+  tbody.innerHTML=filtered.map(e=>`
+    <tr>
+      <td class="l-date" style="font-size:12px;color:var(--text-secondary)">${fmtDateShort(e.date)}</td>
+      <td class="l-desc">
+        <div style="font-size:13px">${e.desc}</div>
+        ${e.notes?`<div class="note-text">${e.notes}</div>`:''}
+      </td>
+      <td class="l-cat" style="font-size:12px;color:var(--text-secondary)">${e.cat}</td>
+      <td class="l-type"><span class="badge b-${e.type}">${e.type==='income'?'↑ Income':'↓ Expense'}</span></td>
+      <td class="l-mode"><span class="badge b-${e.mode}">${e.mode==='cash'?'Cash':'Bank'}</span></td>
+      <td class="l-amt r"><span class="${e.type==='income'?'amt-pos':'amt-neg'}">${e.type==='income'?'+':'-'}${fmt(e.amount)}</span></td>
+      <td class="l-status"><span class="badge b-${e.status}">${e.status.charAt(0).toUpperCase()+e.status.slice(1)}</span></td>
+      <td class="l-act">
+        <button class="action-btn" onclick="editEntry(${e.id})" title="Edit">✎</button>
+        <button class="action-btn" onclick="deleteEntry(${e.id})" title="Delete" style="color:var(--text-tertiary)">✕</button>
+      </td>
+    </tr>`).join('');
+  updateLedgerKpi();
+}
+
+function updateLedgerKpi(){
+  const inc=entries.filter(e=>e.type==='income').reduce((a,e)=>a+e.amount,0);
+  const exp=entries.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);
+  const net=inc-exp;
+  const cashInc=entries.filter(e=>e.type==='income'&&e.mode==='cash'&&e.status==='paid').reduce((a,e)=>a+e.amount,0);
+  const cashExp=entries.filter(e=>e.type==='expense'&&e.mode==='cash'&&e.status==='paid').reduce((a,e)=>a+e.amount,0);
+  const bankInc=entries.filter(e=>e.type==='income'&&e.mode==='bank'&&e.status==='paid').reduce((a,e)=>a+e.amount,0);
+  const bankExp=entries.filter(e=>e.type==='expense'&&e.mode==='bank'&&e.status==='paid').reduce((a,e)=>a+e.amount,0);
+  const pending=entries.filter(e=>['pending','overdue','partial'].includes(e.status)&&e.type==='income').reduce((a,e)=>a+e.amount,0);
+  const overdueCount=entries.filter(e=>e.status==='overdue').length;
+  document.getElementById('l-kpi').innerHTML=`
+    <div class="kpi"><div class="lbl">Total income</div><div class="val up">${fmt(inc)}</div><div class="dl">${entries.filter(e=>e.type==='income').length} entries</div></div>
+    <div class="kpi"><div class="lbl">Total expenses</div><div class="val dn">${fmt(exp)}</div><div class="dl">${entries.filter(e=>e.type==='expense').length} entries</div></div>
+    <div class="kpi"><div class="lbl">Net balance</div><div class="val ${net>=0?'up':'dn'}">${fmt(net)}</div><div class="dl">${net>=0?'Surplus':'Deficit'}</div></div>
+    <div class="kpi"><div class="lbl">Cash balance</div><div class="val">${fmt(cashInc-cashExp)}</div><div class="dl">Cash in hand</div></div>
+    <div class="kpi"><div class="lbl">Bank balance</div><div class="val">${fmt(bankInc-bankExp)}</div><div class="dl">Account balance</div></div>
+    <div class="kpi"><div class="lbl">Pending dues</div><div class="val" style="color:#BA7517">${fmt(pending)}</div><div class="dl">${overdueCount>0?overdueCount+' overdue':'No overdue'}</div></div>`;
+}
+
+function openModal(id){
+  editId=id||null;
+  document.getElementById('modal-title').textContent=editId?'Edit entry':'Add new entry';
+  if(editId){
+    const e=entries.find(x=>x.id===editId);
+    document.getElementById('f-date').value=e.date;
+    document.getElementById('f-type').value=e.type;
+    document.getElementById('f-desc').value=e.desc;
+    document.getElementById('f-cat').value=e.cat;
+    document.getElementById('f-amount').value=e.amount;
+    document.getElementById('f-mode').value=e.mode;
+    document.getElementById('f-status').value=e.status;
+    document.getElementById('f-notes').value=e.notes||'';
+  } else {
+    document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+    document.getElementById('f-type').value='income';
+    document.getElementById('f-desc').value='';
+    document.getElementById('f-cat').value='Sales';
+    document.getElementById('f-amount').value='';
+    document.getElementById('f-mode').value='bank';
+    document.getElementById('f-status').value='paid';
+    document.getElementById('f-notes').value='';
+  }
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');editId=null;}
+function saveEntry(){
+  const date=document.getElementById('f-date').value;
+  const desc=document.getElementById('f-desc').value.trim();
+  const amount=parseFloat(document.getElementById('f-amount').value);
+  if(!date||!desc||isNaN(amount)||amount<=0){alert('Please fill in date, description, and a valid amount.');return;}
+  const entry={id:editId||nextId++,date,desc,cat:document.getElementById('f-cat').value,type:document.getElementById('f-type').value,mode:document.getElementById('f-mode').value,amount,status:document.getElementById('f-status').value,notes:document.getElementById('f-notes').value.trim()};
+  if(editId){const idx=entries.findIndex(e=>e.id===editId);entries[idx]=entry;}else{entries.push(entry);}
+  closeModal();renderLedger();
+}
+function editEntry(id){openModal(id);}
+function deleteEntry(id){if(confirm('Delete this entry?')){entries=entries.filter(e=>e.id!==id);renderLedger();}}
+document.getElementById('modal-bg').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// ══════════════════════════════════════════════════════════════
+// INCOME STATEMENT
+// ══════════════════════════════════════════════════════════════
+function mkMonthData(sales,services,other,rent,sal,util,sup,mkt,trans,taxes,misc){
+  return{
+    rev:[
+      {id:mkId(),date:'',desc:'Product sales',mode:'bank',status:'paid',amt:sales},
+      {id:mkId(),date:'',desc:'Service income',mode:'bank',status:'paid',amt:services},
+      {id:mkId(),date:'',desc:'Other income',mode:'cash',status:'paid',amt:other},
+    ],
+    cogs:[{id:mkId(),date:'',desc:'Materials & supplies',mode:'cash',status:'paid',amt:sup}],
+    opex:[
+      {id:mkId(),date:'',desc:'Rent & premises',mode:'bank',status:'paid',amt:rent},
+      {id:mkId(),date:'',desc:'Salaries & wages',mode:'bank',status:'paid',amt:sal},
+      {id:mkId(),date:'',desc:'Electricity & utilities',mode:'bank',status:'paid',amt:util},
+      {id:mkId(),date:'',desc:'Marketing & ads',mode:'bank',status:'paid',amt:mkt},
+      {id:mkId(),date:'',desc:'Transport & fuel',mode:'cash',status:'paid',amt:trans},
+      {id:mkId(),date:'',desc:'Miscellaneous',mode:'cash',status:'paid',amt:misc},
+    ],
+    tax:[{id:mkId(),date:'',desc:'GST / income tax',mode:'bank',status:'paid',amt:taxes}]
+  };
+}
+
+const STMT_DATA={
+  2025:[
+    mkMonthData(62000,28000,8000,20000,55000,3200,11000,5500,3800,6000,2400),
+    mkMonthData(58000,31000,6500,20000,55000,3100,9500,4800,3200,5800,1900),
+    mkMonthData(74000,35000,9000,20000,55000,3400,13000,7000,4200,7500,2800),
+    mkMonthData(80000,40000,10000,21000,57000,3600,14000,8000,4500,8200,3100),
+    mkMonthData(76000,38000,9500,21000,57000,3500,13500,7500,4300,7800,2900),
+    mkMonthData(85000,42000,11000,21000,57000,3700,15000,9000,4800,9000,3400),
+    mkMonthData(79000,39000,10000,22000,58000,3600,14500,8500,4600,8500,3200),
+    mkMonthData(82000,41000,10500,22000,58000,3800,15000,9000,4700,8800,3300),
+    mkMonthData(88000,44000,12000,22000,58000,3900,16000,10000,5000,9500,3600),
+    mkMonthData(91000,46000,13000,22000,60000,4000,16500,10500,5200,10000,3800),
+    mkMonthData(95000,48000,14000,22000,60000,4200,17000,11000,5500,10500,4000),
+    mkMonthData(110000,55000,18000,22000,60000,4500,20000,14000,6000,12000,4800),
+  ],
+  2026:[
+    mkMonthData(72000,34000,9000,22000,60000,3500,12000,6000,4000,7000,2500),
+    mkMonthData(68000,37000,8000,22000,60000,3300,10500,5500,3500,6800,2100),
+    mkMonthData(85000,42000,11000,22000,60000,3600,14500,8000,4800,8500,3100),
+    mkMonthData(94200,70000,9200,22000,60000,3800,14500,7500,4200,18600,0),
+    mkMonthData(0,25000,0,22000,60000,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+    mkMonthData(0,0,0,0,0,0,0,0,0,0,0),
+  ]
+};
+
+let trendChart=null;
+
+function getStmtContext(){
+  const m=parseInt(document.getElementById('sel-month').value);
+  const y=parseInt(document.getElementById('sel-year').value);
+  return{m,y,d:STMT_DATA[y][m]};
+}
+
+function calcTotals(d){
+  const totalRev=d.rev.reduce((a,r)=>a+r.amt,0);
+  const totalCogs=d.cogs.reduce((a,r)=>a+r.amt,0);
+  const grossProfit=totalRev-totalCogs;
+  const totalOpex=d.opex.reduce((a,r)=>a+r.amt,0);
+  const ebit=grossProfit-totalOpex;
+  const totalTax=d.tax.reduce((a,r)=>a+r.amt,0);
+  const netProfit=ebit-totalTax;
+  const totalExp=totalCogs+totalOpex+totalTax;
+  return{totalRev,totalCogs,grossProfit,totalOpex,ebit,totalTax,netProfit,totalExp};
+}
+
+function getPrevTotals(){
+  const{m,y}=getStmtContext();
+  const pm=m>0?m-1:11,py=m>0?y:(y-1);
+  if(!STMT_DATA[py])return null;
+  return calcTotals(STMT_DATA[py][pm]);
+}
+
+function stmtRowHtml(r,section){
+  const modeOpts=['cash','bank'].map(v=>`<option value="${v}"${r.mode===v?' selected':''}>${v==='cash'?'Cash':'Bank'}</option>`).join('');
+  const statOpts=['paid','pending','overdue','partial'].map(v=>`<option value="${v}"${r.status===v?' selected':''}>${v.charAt(0).toUpperCase()+v.slice(1)}</option>`).join('');
+  return`<tr class="line-item" data-id="${r.id}" data-sec="${section}">
+    <td class="col-date"><input class="editable" style="width:100%;font-size:11px" value="${r.date}" placeholder="dd/mm" onchange="stmtUpdateField('${r.id}','${section}','date',this.value);renderStmt()"></td>
+    <td class="desc col-desc"><input class="editable" value="${r.desc}" onchange="stmtUpdateField('${r.id}','${section}','desc',this.value);renderStmt()"></td>
+    <td class="col-mode"><select class="mini-select" onchange="stmtUpdateField('${r.id}','${section}','mode',this.value);renderStmt()">${modeOpts}</select></td>
+    <td class="col-status"><select class="mini-select" onchange="stmtUpdateField('${r.id}','${section}','status',this.value);renderStmt()">${statOpts}</select></td>
+    <td class="r col-amt-s"><input class="amt-input" type="number" value="${r.amt}" min="0" step="1" onchange="stmtUpdateField('${r.id}','${section}','amt',parseFloat(this.value)||0);renderStmt()"></td>
+    <td class="r col-pct" id="pct-${r.id}" style="font-size:11px;color:var(--text-tertiary)">—</td>
+    <td class="col-del" style="white-space:nowrap">
+      <button class="del-btn" onclick="openStmtModal('${r.id}','${section}')" title="Edit" style="margin-right:2px;color:var(--text-tertiary)">✎</button>
+      <button class="del-btn" onclick="stmtDelRow('${r.id}','${section}')" title="Delete">✕</button>
+    </td>
+  </tr>`;
+}
+
+function subtotalHtml(label,amt,totalRev,cls){
+  return`<tr class="subtotal"><td colspan="4" style="padding-left:12px">${label}</td><td class="r ${cls}">${fmt(amt)}</td><td class="r" style="font-size:11px;color:var(--text-tertiary)">${pctStr(amt,totalRev)}</td><td></td></tr>`;
+}
+
+function renderStmt(){
+  const{m,y,d}=getStmtContext();
+  document.getElementById('stmt-sub').textContent=MONTHS[m]+' '+y;
+  const t=calcTotals(d);
+  const pt=getPrevTotals();
+  const gpm=t.totalRev?+(t.grossProfit/t.totalRev*100).toFixed(1):0;
+  const npm=t.totalRev?+(t.netProfit/t.totalRev*100).toFixed(1):0;
+
+  document.getElementById('s-kpi').innerHTML=`
+    <div class="kpi"><div class="lbl">Total revenue</div><div class="val up">${fmt(t.totalRev)}</div><div class="dl">${deltaHtml(t.totalRev,pt?.totalRev)} vs prev month</div></div>
+    <div class="kpi"><div class="lbl">Total expenses</div><div class="val dn">${fmt(t.totalExp)}</div><div class="dl">${deltaHtml(t.totalExp,pt?.totalExp)} vs prev month</div></div>
+    <div class="kpi"><div class="lbl">Gross profit</div><div class="val ${t.grossProfit>=0?'up':'dn'}">${fmt(t.grossProfit)}</div><div class="dl">Margin: ${gpm}%</div></div>
+    <div class="kpi"><div class="lbl">Net profit / (loss)</div><div class="val ${t.netProfit>=0?'up':'dn'}">${fmt(t.netProfit)}</div><div class="dl">Margin: ${npm}%</div></div>`;
+
+  let html=`<table>
+    <thead><tr>
+      <th class="col-date">Date</th><th class="col-desc">Description</th>
+      <th class="col-mode">Mode</th><th class="col-status">Status</th>
+      <th class="r col-amt-s">Amount</th><th class="r col-pct">% Rev</th><th class="col-del"></th>
+    </tr></thead><tbody>`;
+
+  html+=`<tr class="sec-head"><td colspan="7">Revenue</td></tr>`;
+  d.rev.forEach(r=>{html+=stmtRowHtml(r,'rev')});
+  html+=`<tr><td colspan="7"><button class="add-row-btn" onclick="stmtAddRow('rev')">+ add revenue line</button></td></tr>`;
+  html+=subtotalHtml('Total revenue',t.totalRev,t.totalRev,'pos');
+
+  html+=`<tr class="sec-head"><td colspan="7">Cost of goods sold</td></tr>`;
+  d.cogs.forEach(r=>{html+=stmtRowHtml(r,'cogs')});
+  html+=`<tr><td colspan="7"><button class="add-row-btn" onclick="stmtAddRow('cogs')">+ add COGS line</button></td></tr>`;
+  html+=subtotalHtml('Gross profit',t.grossProfit,t.totalRev,t.grossProfit>=0?'pos':'neg');
+
+  html+=`<tr class="sec-head"><td colspan="7">Operating expenses</td></tr>`;
+  d.opex.forEach(r=>{html+=stmtRowHtml(r,'opex')});
+  html+=`<tr><td colspan="7"><button class="add-row-btn" onclick="stmtAddRow('opex')">+ add operating expense</button></td></tr>`;
+  html+=subtotalHtml('EBIT (operating profit)',t.ebit,t.totalRev,t.ebit>=0?'pos':'neg');
+
+  html+=`<tr class="sec-head"><td colspan="7">Tax & adjustments</td></tr>`;
+  d.tax.forEach(r=>{html+=stmtRowHtml(r,'tax')});
+  html+=`<tr><td colspan="7"><button class="add-row-btn" onclick="stmtAddRow('tax')">+ add tax / adjustment</button></td></tr>`;
+  html+=`<tr class="grand-total"><td colspan="4" style="padding-left:12px"><strong>Net profit / (loss)</strong></td><td class="r ${t.netProfit>=0?'pos':'neg'}">${fmt(t.netProfit)}</td><td class="r" style="font-size:11px;color:var(--text-tertiary)">${pctStr(t.netProfit,t.totalRev)}</td><td></td></tr>`;
+  html+=`</tbody></table>`;
+  document.getElementById('stmt-body').innerHTML=html;
+
+  document.querySelectorAll('[id^="pct-"]').forEach(el=>{
+    const id=el.id.replace('pct-','');
+    const sec=el.closest('tr')?.dataset?.sec;
+    if(!sec)return;
+    const row=STMT_DATA[y][m][sec]?.find(r=>r.id===id);
+    if(row&&t.totalRev)el.textContent=pctStr(row.amt,t.totalRev);
+  });
+
+  buildChart(y);
+}
+
+function updateStmt(){renderStmt();}
+
+function stmtUpdateField(id,sec,field,val){
+  const{y,m}=getStmtContext();
+  const row=STMT_DATA[y][m][sec]?.find(r=>r.id===id);
+  if(row)row[field]=field==='amt'?parseFloat(val)||0:val;
+}
+function stmtAddRow(sec){
+  const{y,m}=getStmtContext();
+  STMT_DATA[y][m][sec].push({id:mkId(),date:'',desc:'New item',mode:'bank',status:'paid',amt:0});
+  renderStmt();
+}
+function stmtDelRow(id,sec){
+  const{y,m}=getStmtContext();
+  STMT_DATA[y][m][sec]=STMT_DATA[y][m][sec].filter(r=>r.id!==id);
+  renderStmt();
+}
+
+function buildChart(yr){
+  const revD=[],expD=[],netD=[];
+  for(let i=0;i<12;i++){
+    const t=calcTotals(STMT_DATA[yr][i]);
+    revD.push(t.totalRev);expD.push(t.totalExp);netD.push(t.netProfit);
+  }
+  if(trendChart)trendChart.destroy();
+  trendChart=new Chart(document.getElementById('trend-chart').getContext('2d'),{
+    type:'bar',
+    data:{labels:SHORT,datasets:[
+      {label:'Revenue',data:revD,backgroundColor:'#9FE1CB',borderColor:'#1D9E75',borderWidth:1,order:2},
+      {label:'Expenses',data:expD,backgroundColor:'#F5C4B3',borderColor:'#D85A30',borderWidth:1,order:3},
+      {label:'Net profit',data:netD,type:'line',borderDash:[5,4],borderColor:'#185FA5',borderWidth:2,pointBackgroundColor:'#185FA5',pointRadius:3,fill:false,order:1,tension:0.3},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt(ctx.parsed.y)}}},
+      scales:{
+        x:{grid:{display:false},ticks:{autoSkip:false,font:{size:11}}},
+        y:{ticks:{callback:v=>(v<0?'-₹':'₹')+(Math.abs(v)>=100000?(Math.abs(v)/100000).toFixed(1)+'L':(Math.abs(v)/1000).toFixed(0)+'K'),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}}
+      }
+    }
+  });
+}
+
+// ─── STMT MODAL ─────────────────────────────────────────────────
+let stmtEditId=null, stmtEditSec=null;
+
+function openStmtModal(id, sec){
+  stmtEditId=id||null; stmtEditSec=sec||null;
+  document.getElementById('stmt-modal-title').textContent=stmtEditId?'Edit entry':'Add statement entry';
+  if(stmtEditId){
+    const{y,m}=getStmtContext();
+    const row=STMT_DATA[y][m][stmtEditSec]?.find(r=>r.id===stmtEditId);
+    if(row){
+      document.getElementById('sf-date').value=row.date||'';
+      document.getElementById('sf-section').value=stmtEditSec;
+      document.getElementById('sf-desc').value=row.desc;
+      document.getElementById('sf-amount').value=row.amt;
+      document.getElementById('sf-mode').value=row.mode;
+      document.getElementById('sf-status').value=row.status;
+    }
+  } else {
+    document.getElementById('sf-date').value='';
+    document.getElementById('sf-section').value='rev';
+    document.getElementById('sf-desc').value='';
+    document.getElementById('sf-amount').value='';
+    document.getElementById('sf-mode').value='bank';
+    document.getElementById('sf-status').value='paid';
+  }
+  document.getElementById('stmt-modal-bg').classList.add('open');
+}
+
+function closeStmtModal(){
+  document.getElementById('stmt-modal-bg').classList.remove('open');
+  stmtEditId=null; stmtEditSec=null;
+}
+
+function saveStmtEntry(){
+  const desc=document.getElementById('sf-desc').value.trim();
+  const amount=parseFloat(document.getElementById('sf-amount').value);
+  if(!desc||isNaN(amount)||amount<0){alert('Please fill in a description and a valid amount.');return;}
+  const{y,m}=getStmtContext();
+  const sec=document.getElementById('sf-section').value;
+  const entry={
+    id:stmtEditId||mkId(),
+    date:document.getElementById('sf-date').value.trim(),
+    desc,
+    mode:document.getElementById('sf-mode').value,
+    status:document.getElementById('sf-status').value,
+    amt:amount
+  };
+  if(stmtEditId){
+    // handle section change
+    if(stmtEditSec&&stmtEditSec!==sec){
+      STMT_DATA[y][m][stmtEditSec]=STMT_DATA[y][m][stmtEditSec].filter(r=>r.id!==stmtEditId);
+      STMT_DATA[y][m][sec].push(entry);
+    } else {
+      const idx=STMT_DATA[y][m][sec].findIndex(r=>r.id===stmtEditId);
+      if(idx>-1)STMT_DATA[y][m][sec][idx]=entry;
+    }
+  } else {
+    STMT_DATA[y][m][sec].push(entry);
+  }
+  closeStmtModal();
+  renderStmt();
+}
+
+document.getElementById('stmt-modal-bg').addEventListener('click',function(e){if(e.target===this)closeStmtModal();});
+
+// ─── INIT ───────────────────────────────────────────────────────
+renderLedger();
+renderStmt();
+</script>
+</body>
+</html>
